@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace CSRedisCore.Tests {
@@ -36,12 +37,31 @@ namespace CSRedisCore.Tests {
 		}
 
 		[Fact]
-		public void HGetAll() {
+		public void HGetAll()
+		{
 			Assert.True(rds.HMSet("TestHGetAll", "string1", base.String, "bytes1", base.Bytes, "class1", base.Class, "class1array", new[] { base.Class, base.Class }));
 			Assert.Equal(4, rds.HGetAll("TestHGetAll").Count);
 			Assert.Equal(base.String, rds.HGetAll("TestHGetAll")["string1"]);
 			Assert.Equal(Encoding.UTF8.GetString(base.Bytes), rds.HGetAll("TestHGetAll")["bytes1"]);
 			Assert.Equal(base.Class.ToString(), rds.HGetAll("TestHGetAll")["class1"]);
+
+			Task.Run(async () =>
+			{
+				var test = await rds.HGetAllAsync("TestHGetAll");
+
+				rds.Set("TestHGetAll2", "1");
+				try
+				{
+					var test2 = await rds.HGetAllAsync("TestHGetAll2");
+				}
+				catch
+				{
+
+				}
+
+				for (var a = 0; a < 1000; a++)
+					test = await rds.HGetAllAsync("TestHGetAll");
+			}).Wait();
 		}
 
 		[Fact]
@@ -57,13 +77,14 @@ namespace CSRedisCore.Tests {
 
 		[Fact]
 		public void HIncrByFloat() {
+			rds.Del("TestHIncrByFloat");
 			Assert.True(rds.HMSet("TestHIncrByFloat", "null1", base.Null, "string1", base.String, "bytes1", base.Bytes, "class1", base.Class, "class1array", new[] { base.Class, base.Class }));
-			Assert.Equal(0.5, rds.HIncrByFloat("TestHIncrByFloat", "null1", 0.5));
-			Assert.Throws<CSRedis.RedisException>(() => rds.HIncrByFloat("TestHIncrByFloat", "string1", 1.5));
+			Assert.Equal(0.5m, rds.HIncrByFloat("TestHIncrByFloat", "null1", 0.5m));
+			Assert.Throws<CSRedis.RedisException>(() => rds.HIncrByFloat("TestHIncrByFloat", "string1", 1.5m));
 			Assert.Throws<CSRedis.RedisException>(() => rds.HIncrByFloat("TestHIncrByFloat", "bytes1", 5));
 
-			Assert.Equal(3.8, rds.HIncrByFloat("TestHIncrByFloat", "null1", 3.3));
-			Assert.Equal(14.3, rds.HIncrByFloat("TestHIncrByFloat", "null1", 10.5));
+			Assert.Equal(3.8m, rds.HIncrByFloat("TestHIncrByFloat", "null1", 3.3m));
+			Assert.Equal(14.0m, rds.HIncrByFloat("TestHIncrByFloat", "null1", 10.2m));
 		}
 
 		[Fact]

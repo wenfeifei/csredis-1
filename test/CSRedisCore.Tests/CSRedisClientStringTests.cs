@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace CSRedisCore.Tests {
@@ -18,11 +20,34 @@ namespace CSRedisCore.Tests {
 			rds.Set(key, base.String);
 			rds.Append(key, base.String);
 			Assert.Equal(rds.Get(key), base.String + base.String);
+			var ms = new MemoryStream();
+			rds.Get(key, ms);
+			Assert.Equal(Encoding.UTF8.GetString(ms.ToArray()), base.String + base.String);
+			ms.Close();
 
 			key = "TestAppend_bytes";
 			rds.Set(key, base.Bytes);
 			rds.Append(key, base.Bytes);
 			Assert.Equal(Convert.ToBase64String(rds.Get<byte[]>(key)), Convert.ToBase64String(base.Bytes.Concat(base.Bytes).ToArray()));
+		}
+
+		[Fact]
+		async public Task AppendAsync()
+		{
+			var key = "TestAppendAsync_null";
+			await rds.SetAsync(key, base.String);
+			await rds.AppendAsync(key, base.Null);
+			Assert.Equal(await rds.GetAsync(key), base.String);
+
+			key = "TestAppendAsync_string";
+			await rds.SetAsync(key, base.String);
+			await rds.AppendAsync(key, base.String);
+			Assert.Equal(await rds.GetAsync(key), base.String + base.String);
+
+			key = "TestAppendAsync_bytes";
+			await rds.SetAsync(key, base.Bytes);
+			await rds.AppendAsync(key, base.Bytes);
+			Assert.Equal(Convert.ToBase64String(await rds.GetAsync<byte[]>(key)), Convert.ToBase64String(base.Bytes.Concat(base.Bytes).ToArray()));
 		}
 
 		[Fact]
@@ -43,27 +68,39 @@ namespace CSRedisCore.Tests {
 
 		[Fact]
 		public void Get() {
-			var key = "TestGet_null";
-			rds.Set(key, base.Null);
-			Assert.Equal(rds.Get(key)?.ToString() ?? "", base.Null?.ToString() ?? "");
+            var testss = rds.StartPipe(a =>
+            {
+                a.Get<int?>("1");
+                a.Get<int?>("2");
+                a.Get("3");
+                a.Get<long>("4");
+            });
 
-			key = "TestGet_string";
-			rds.Set(key, base.String);
-			Assert.Equal(rds.Get(key), base.String);
+            Task.Run(async() => {
+                var key = "TestGet_null";
+                await rds.SetAsync(key, base.Null);
+                Assert.Equal((await rds.GetAsync(key))?.ToString() ?? "", base.Null?.ToString() ?? "");
 
-			key = "TestGet_bytes";
-			rds.Set(key, base.Bytes);
-			Assert.Equal(rds.Get<byte[]>(key), base.Bytes);
+                key = "TestGet_string";
+                await rds.SetAsync(key, base.String);
+                Assert.Equal(await rds.GetAsync(key), base.String);
 
-			key = "TestGet_class";
-			rds.Set(key, base.Class);
-			Assert.Equal(rds.Get<TestClass>(key)?.ToString(), base.Class.ToString());
+                key = "TestGet_bytes";
+                await rds.SetAsync(key, base.Bytes);
+                Assert.Equal(await rds.GetAsync<byte[]>(key), base.Bytes);
 
-			key = "TestGet_classArray";
-			rds.Set(key, new[] { base.Class, base.Class });
-			Assert.Equal(2, rds.Get<TestClass[]>(key)?.Length);
-			Assert.Equal(rds.Get<TestClass[]>(key)?.First().ToString(), base.Class.ToString());
-			Assert.Equal(rds.Get<TestClass[]>(key)?.Last().ToString(), base.Class.ToString());
+                key = "TestGet_class";
+                await rds.SetAsync(key, base.Class);
+                Assert.Equal((await rds.GetAsync<TestClass>(key))?.ToString(), base.Class.ToString());
+
+                key = "TestGet_classArray";
+                await rds.SetAsync(key, new[] { base.Class, base.Class });
+                Assert.Equal(2, rds.Get<TestClass[]>(key)?.Length);
+                Assert.Equal((await rds.GetAsync<TestClass[]>(key))?.First().ToString(), base.Class.ToString());
+                Assert.Equal((await rds.GetAsync<TestClass[]>(key))?.Last().ToString(), base.Class.ToString());
+            }).Wait();
+
+			
 		}
 
 		[Fact]
@@ -129,7 +166,7 @@ namespace CSRedisCore.Tests {
 			key = "TestIncrBy";
 			Assert.Equal(1, rds.IncrBy(key, 1));
 			Assert.Equal(11, rds.IncrBy(key, 10));
-			Assert.Equal(21.5, rds.IncrByFloat(key, 10.5));
+			Assert.Equal(21.5m, rds.IncrByFloat(key, 10.5m));
 		}
 
 		[Fact]
